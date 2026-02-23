@@ -14,6 +14,12 @@ describe("harmony parser", () => {
   test("falls back to raw when token is invalid", () => {
     expect(parseHarmonyToken("sus4")).toEqual({ kind: "raw", raw: "sus4" })
   })
+
+  test("keeps major seventh literals as raw accepted tokens", () => {
+    expect(parseHarmonyToken("Ton7M")).toEqual({ kind: "raw", raw: "Ton7M" })
+    expect(parseHarmonyToken("4M7")).toEqual({ kind: "raw", raw: "4M7" })
+    expect(parseHarmonyToken("4(7M)")).toEqual({ kind: "raw", raw: "4(7M)" })
+  })
 })
 
 describe("key transposition", () => {

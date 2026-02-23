@@ -30,8 +30,20 @@ const FLAT_SCALE: KeyNote[] = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", 
 const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11] as const
 
 const DEGREE_TOKEN_REGEX = /^(?<degree>[1-7])(?<minor>m)?(?:\((?<ext>7)\))?$/i
+const TON_MAJOR_SEVENTH_LITERAL_REGEX = /^([Tt][Oo][Nn])(?:7M|M7|\(7M\)|\(M7\))$/
+const DEGREE_MAJOR_SEVENTH_LITERAL_REGEX = /^(?<degree>[1-7])(?<minor>m)?(?:7M|M7|\(7M\)|\(M7\))$/
 
 const DEFAULT_KEY: KeyNote = "C"
+
+export function isAcceptedLiteralToken(token: string): boolean {
+  const normalized = token.trim()
+
+  if (!normalized) {
+    return false
+  }
+
+  return TON_MAJOR_SEVENTH_LITERAL_REGEX.test(normalized) || DEGREE_MAJOR_SEVENTH_LITERAL_REGEX.test(normalized)
+}
 
 export function isFlatFamilyKey(note: string): boolean {
   return note.includes("b")
@@ -149,11 +161,13 @@ export function parseHarmonyToken(rawToken: string): ParsedHarmonyToken {
   const match = normalized.match(DEGREE_TOKEN_REGEX)
 
   if (!match?.groups) {
-    if (import.meta.env.DEV) {
+    const acceptedLiteral = isAcceptedLiteralToken(normalized)
+
+    if (import.meta.env.DEV && !acceptedLiteral) {
       console.warn(`[music] Invalid harmony token '${rawToken}', rendering raw.`)
     }
 
-    return { kind: "raw", raw: rawToken.trim() }
+    return { kind: "raw", raw: normalized }
   }
 
   return {

@@ -11,6 +11,13 @@ import { KEY_NOTES, type KeyNote, type RepertoireState, type SongFile } from "@/
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
+
 type LibraryScreenProps = {
   songs: SongFile[]
   repertoire: RepertoireState
@@ -70,15 +77,25 @@ export function LibraryScreen({
   }, [isSearchActive, onSearchClose])
 
   const filteredSongs = songs.filter((song) => {
-    const normalizedQuery = searchQuery.trim().toLowerCase()
+    const normalizedQuery = normalizeSearchText(searchQuery.trim())
 
     if (!normalizedQuery) {
       return false
     }
 
+    const searchableText = [
+      song.title,
+      song.artist,
+      song.searchIndex?.join(" ") ?? "",
+      song.lyrics ?? "",
+    ]
+      .join(" ")
+      .trim()
+
+    const normalizedSearchableText = normalizeSearchText(searchableText)
+
     return (
-      song.title.toLowerCase().includes(normalizedQuery) ||
-      song.artist.toLowerCase().includes(normalizedQuery)
+      normalizedSearchableText.includes(normalizedQuery)
     )
   })
 
@@ -264,7 +281,7 @@ export function LibraryScreen({
             <CardContent>
               <div className="max-h-[50dvh] space-y-2 overflow-y-auto pr-1 md:max-h-[56dvh]">
                 {searchQuery.trim().length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Busque por título ou artista.</p>
+                  <p className="text-sm text-muted-foreground">Busque por título, cantor, índice ou letra.</p>
                 ) : filteredSongs.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhuma música encontrada.</p>
                 ) : (
