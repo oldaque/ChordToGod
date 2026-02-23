@@ -1,5 +1,5 @@
 import type { KeyNote, Section, SongFile } from "@/types/song"
-import { normalizeKey, parseHarmonyToken } from "@/lib/music/harmony"
+import { isAcceptedLiteralToken, normalizeKey, parseHarmonyToken } from "@/lib/music/harmony"
 
 type ParseResult = {
   song: SongFile
@@ -37,6 +37,8 @@ export function parseSongMarkdown(id: string, rawMarkdown: string): ParseResult 
 
   const content = rawMarkdown.slice(frontmatterMatch[0].length)
   const sections = parseSections(content, id, warnings)
+  const searchIndex = parseSearchIndex(metadata.search_index)
+  const lyrics = metadata.lyrics?.trim()
 
   return {
     song: {
@@ -44,6 +46,8 @@ export function parseSongMarkdown(id: string, rawMarkdown: string): ParseResult 
       title,
       artist,
       key: key as KeyNote,
+      searchIndex: searchIndex.length > 0 ? searchIndex : undefined,
+      lyrics: lyrics ? lyrics : undefined,
       sections,
     },
     warnings,
@@ -51,21 +55,70 @@ export function parseSongMarkdown(id: string, rawMarkdown: string): ParseResult 
 }
 
 function parseFrontmatter(frontmatter: string): Record<string, string> {
-  return frontmatter
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .reduce<Record<string, string>>((acc, line) => {
-      const separatorIndex = line.indexOf(":")
-      if (separatorIndex < 0) {
-        return acc
+  const lines = frontmatter.split("\n")
+  const metadata: Record<string, string> = {}
+  let index = 0
+
+  while (index < lines.length) {
+    const line = lines[index]
+
+    if (!line.trim()) {
+      index += 1
+      continue
+    }
+
+    const separatorIndex = line.indexOf(":")
+
+    if (separatorIndex < 0) {
+      index += 1
+      continue
+    }
+
+    const key = line.slice(0, separatorIndex).trim()
+    const value = line.slice(separatorIndex + 1).trim()
+
+    if (value !== "|") {
+      metadata[key] = value
+      index += 1
+      continue
+    }
+
+    index += 1
+    const blockLines: string[] = []
+
+    while (index < lines.length) {
+      const blockLine = lines[index]
+
+      if (!blockLine.trim()) {
+        blockLines.push("")
+        index += 1
+        continue
       }
 
-      const key = line.slice(0, separatorIndex).trim()
-      const value = line.slice(separatorIndex + 1).trim()
-      acc[key] = value
-      return acc
-    }, {})
+      if (/^\s+/.test(blockLine)) {
+        blockLines.push(blockLine.replace(/^\s+/, ""))
+        index += 1
+        continue
+      }
+
+      break
+    }
+
+    metadata[key] = blockLines.join("\n").trimEnd()
+  }
+
+  return metadata
+}
+
+function parseSearchIndex(raw: string | undefined): string[] {
+  if (!raw) {
+    return []
+  }
+
+  return raw
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function parseSections(content: string, songId: string, warnings: string[]): Section[] {
@@ -108,7 +161,7 @@ function parseSections(content: string, songId: string, warnings: string[]): Sec
       .map((token) => {
         const parsed = parseHarmonyToken(token)
 
-        if (parsed.kind === "raw") {
+        if (parsed.kind === "raw" && !isAcceptedLiteralToken(token)) {
           warnings.push(`Song '${songId}' has invalid token '${token}' in section '${sectionLabel}'.`)
         }
 

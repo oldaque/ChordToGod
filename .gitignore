@@ -25,3 +25,6 @@ dist-ssr
 
 # Local scaffold backup
 chord-to-god/
+
+# Local agent instructions (do not version)
+AGENTS.md
