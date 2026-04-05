@@ -53,6 +53,8 @@ export type SongFile = {
   title: string
   artist: string
   key: KeyNote
+  searchIndex?: string[]
+  lyrics?: string
   sections: Section[]
 }
 

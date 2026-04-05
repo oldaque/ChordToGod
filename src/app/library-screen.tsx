@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,13 @@ import { cn } from "@/lib/utils"
 import { KEY_NOTES, type KeyNote, type RepertoireState, type SongFile } from "@/types/song"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
 
 type LibraryScreenProps = {
   songs: SongFile[]
@@ -48,6 +55,7 @@ export function LibraryScreen({
   onSetSongKey,
   onStart,
 }: LibraryScreenProps) {
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const songIdsInRepertoire = new Set(repertoire.songIds)
 
   useEffect(() => {
@@ -69,21 +77,41 @@ export function LibraryScreen({
   }, [isSearchActive, onSearchClose])
 
   const filteredSongs = songs.filter((song) => {
-    const normalizedQuery = searchQuery.trim().toLowerCase()
+    const normalizedQuery = normalizeSearchText(searchQuery.trim())
 
     if (!normalizedQuery) {
       return false
     }
 
+    const searchableText = [
+      song.title,
+      song.artist,
+      song.searchIndex?.join(" ") ?? "",
+      song.lyrics ?? "",
+    ]
+      .join(" ")
+      .trim()
+
+    const normalizedSearchableText = normalizeSearchText(searchableText)
+
     return (
-      song.title.toLowerCase().includes(normalizedQuery) ||
-      song.artist.toLowerCase().includes(normalizedQuery)
+      normalizedSearchableText.includes(normalizedQuery)
     )
   })
 
   const repertoireSongs = repertoire.songIds
     .map((songId) => songs.find((song) => song.id === songId))
     .filter((song): song is SongFile => Boolean(song))
+
+  const handleSearchCloseOrClear = () => {
+    if (searchQuery.trim().length > 0) {
+      onSearchChange("")
+      searchInputRef.current?.focus()
+      return
+    }
+
+    onSearchClose()
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-3 p-3 pb-6 md:p-6">
@@ -99,6 +127,7 @@ export function LibraryScreen({
           className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         />
         <Input
+          ref={searchInputRef}
           value={searchQuery}
           placeholder="pesquisar música"
           onFocus={onSearchFocus}
@@ -112,8 +141,8 @@ export function LibraryScreen({
             variant="ghost"
             size="icon-sm"
             className="absolute end-1 top-1/2 size-9 -translate-y-1/2 rounded-full"
-            onClick={onSearchClose}
-            aria-label="Fechar busca"
+            onClick={handleSearchCloseOrClear}
+            aria-label={searchQuery.trim().length > 0 ? "Limpar busca" : "Fechar busca"}
           >
             <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
           </Button>
@@ -252,7 +281,7 @@ export function LibraryScreen({
             <CardContent>
               <div className="max-h-[50dvh] space-y-2 overflow-y-auto pr-1 md:max-h-[56dvh]">
                 {searchQuery.trim().length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Busque por título ou artista.</p>
+                  <p className="text-sm text-muted-foreground">Busque por título, cantor, índice ou letra.</p>
                 ) : filteredSongs.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhuma música encontrada.</p>
                 ) : (
